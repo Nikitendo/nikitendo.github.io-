@@ -3,34 +3,33 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Markdown + LaTeX Viewer</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
-<style>
-  body{font:16px/1.6 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin:0; padding:0; background:#fff}
-  #app{max-width:720px; margin:40px auto; padding:0 16px;}
-  pre code{white-space:pre-wrap; word-break:break-word}
-</style>
-
-<div id="app">Загружаю…</div>
+<div id="app" style="max-width:720px;margin:40px auto;padding:0 16px;font:16px/1.6 system-ui;">Загружаю…</div>
 
 <script src="https://cdn.jsdelivr.net/npm/markdown-it@14/dist/markdown-it.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/markdown-it-texmath@1.0.0/texmath.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
 <script>
-/** ── 1) Декодер Base64url → строка (UTF-8 безопасно) ───────────────────── **/
+// ——— Base64url кодек (ничего не меняет в слэшах) ———
+function toBase64Url(str){
+  const bytes = new TextEncoder().encode(str);
+  let bin = ''; for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+  return btoa(bin).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+}
 function fromBase64Url(b64url){
-  if(!b64url) return '';
-  const b64 = b64url.replace(/-/g,'+').replace(/_/g,'/') + '==='.slice((b64url.length+3)%4);
-  const bin = atob(b64);
-  const bytes = Uint8Array.from(bin, c => c.charCodeAt(0));
+  if (!b64url) return '';
+  const b64 = b64url.replace(/-/g,'+').replace(/_/g,'/').padEnd(Math.ceil(b64url.length/4)*4,'=');
+  const bin = atob(b64), bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
   return new TextDecoder().decode(bytes);
 }
 
-/** ── 2) Достаём t= из фрагмента #t=... & другие параметры, если будут ───── **/
-const hash = location.hash.startsWith('#') ? location.hash.slice(1) : location.hash;
-const params = new URLSearchParams(hash);
-const payload = params.get('t') || '';    // Base64url-строка
-const mdText = payload
-  ? fromBase64Url(payload)
-  : String.raw`[Активация электротехнического протокола. Анализ соотношения электрических и механических углов.]
+// ——— Читаем payload из фрагмента #t=... ———
+const params = new URLSearchParams(location.hash.slice(1));
+const payload = params.get('t');
+
+// ——— Если payload нет — показываем демо-текст через String.raw (одинарные \ работают) ———
+const fallback = String.raw`
+[Активация электротехнического протокола. Анализ соотношения электрических и механических углов.]
 
 Это вопрос масштабирования. Соотношение между электрическими углами ($\alpha_e$) и механическими (геометрическими) углами ($\alpha_m$) напрямую зависит от числа пар полюсов ($p$) по формуле:
 
@@ -61,12 +60,12 @@ $$\alpha_m = 30 \text{ град}$$
 
 Если число пар полюсов равно 3, то **90 электрических градусов соответствует 30 геометрическим (механическим) градусам**.
 
-Это означает, что для полного электрического цикла (360 электрических градусов) ротору достаточно повернуться всего на 120 механических градусов ($360 / 3 = 120$). Машина с большим числом полюсов совершает больше электрических циклов за один физический оборот.
-`;
+Это означает, что для полного электрического цикла (360 электрических градусов) ротору достаточно повернуться всего на 120 механических градусов ($360 / 3 = 120$). Машина с большим числом полюсов совершает больше электрических циклов за один физический оборот.`;
 
-/** ── 3) Markdown → HTML с LaTeX через KaTeX ─────────────────────────────── **/
-const md = window.markdownit({html:false, linkify:true, typographer:true})
-  .use(texmath, {engine:katex, delimiters:'dollars', katexOptions:{throwOnError:false}});
+// ——— Рендер ———
+const md = window.markdownit({ html:false, linkify:true, typographer:true })
+  .use(texmath, { engine:katex, delimiters:'dollars', katexOptions:{ throwOnError:false }});
 
+const mdText = payload ? fromBase64Url(payload) : fallback;
 document.querySelector('#app').innerHTML = md.render(mdText);
 </script>
