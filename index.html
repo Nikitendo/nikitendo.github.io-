@@ -1,71 +1,288 @@
 <!doctype html>
+<html lang="ru">
+<head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Markdown + LaTeX Viewer</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Markdown Viewer</title>
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0d1117" media="(prefers-color-scheme: dark)">
+
+<!-- Katex CSS -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
-<div id="app" style="max-width:720px;margin:40px auto;padding:0 16px;font:16px/1.6 system-ui;">Загружаю…</div>
 
-<script src="https://cdn.jsdelivr.net/npm/markdown-it@14/dist/markdown-it.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/markdown-it-texmath@1.0.0/texmath.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<!-- Highlight.js CSS (GitHub темы: светлая и темная) -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css" media="(prefers-color-scheme: light)">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" media="(prefers-color-scheme: dark)">
+
+<style>
+  /* --- Цвета и переменные --- */
+  :root {
+    --bg-body: #ffffff;
+    --text-main: #24292f;
+    --text-muted: #57606a;
+    --link: #0969da;
+    --border: #d0d7de;
+    --bg-code: #f6f8fa; /* Фон кода совпадает с темой highlight.js */
+    --bg-blockquote: #f3f4f6;
+    --accent: #0969da;
+    --font-stack: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg-body: #0d1117;
+      --text-main: #e6edf3;
+      --text-muted: #8b949e;
+      --link: #4493f8;
+      --border: #30363d;
+      --bg-code: #161b22; /* Фон кода темный */
+      --bg-blockquote: #1f2428;
+      --accent: #58a6ff;
+    }
+  }
+
+  body {
+    margin: 0;
+    background-color: var(--bg-body);
+    color: var(--text-main);
+    font-family: var(--font-stack);
+    font-size: 17px;
+    line-height: 1.6;
+  }
+
+  .container { max-width: 720px; margin: 0 auto; padding: 24px 20px 80px 20px; }
+
+  h1, h2, h3 { margin-top: 1.5em; margin-bottom: 0.6em; line-height: 1.25; font-weight: 600; }
+  h1 { border-bottom: 1px solid var(--border); padding-bottom: 0.3em; }
+  a { color: var(--link); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  /* --- Стили для обертки кода и кнопки --- */
+  .code-wrapper {
+    position: relative;
+    margin-bottom: 16px;
+  }
+
+  /* Сама кнопка копирования */
+  .copy-btn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background: rgba(128, 128, 128, 0.15);
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 4px 8px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+    z-index: 10;
+    font-family: inherit;
+    backdrop-filter: blur(4px);
+  }
+  
+  .copy-btn:hover {
+    background: var(--accent);
+    color: white;
+    border-color: var(--accent);
+  }
+
+  /* Блок кода */
+  pre {
+    margin: 0;
+    padding: 16px;
+    overflow-x: auto;
+    border-radius: 8px;
+    background-color: var(--bg-code) !important; /* Важно для перекрытия стилей highlight.js если нужно */
+    -webkit-overflow-scrolling: touch;
+    border: 1px solid var(--border);
+  }
+  
+  /* Inline code */
+  p > code, li > code {
+    background-color: var(--bg-code);
+    padding: 0.2em 0.4em;
+    border-radius: 6px;
+    font-size: 85%;
+    font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  }
+
+  /* Таблицы и цитаты */
+  blockquote { border-left: 4px solid var(--accent); margin: 0 0 16px 0; padding: 8px 16px; background: var(--bg-blockquote); color: var(--text-muted); border-radius: 0 6px 6px 0; }
+  .table-wrapper { overflow-x: auto; margin-bottom: 16px; -webkit-overflow-scrolling: touch; }
+  table { width: 100%; border-collapse: collapse; min-width: 400px; }
+  th, td { padding: 8px 12px; border: 1px solid var(--border); text-align: left; }
+  tr:nth-child(2n) { background-color: var(--bg-code); }
+  .katex-display { overflow-x: auto; overflow-y: hidden; padding: 4px 0; margin: 1em 0; -webkit-overflow-scrolling: touch; }
+  img { max-width: 100%; height: auto; border-radius: 8px; display: block; margin: 16px auto; }
+
+  #loader { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 40px; height: 40px; border: 4px solid var(--bg-code); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
+  @keyframes spin { to { transform: translate(-50%, -50%) rotate(360deg); } }
+  .hidden { display: none !important; }
+</style>
+
+<script src="https://cdn.jsdelivr.net/npm/markdown-it@14/dist/markdown-it.min.js" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/markdown-it-texmath@1.0.0/texmath.min.js" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" defer></script>
+<!-- Подключаем JS для highlight.js -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js" defer></script>
+</head>
+<body>
+
+<div id="loader"></div>
+<div id="app" class="container hidden"></div>
+
 <script>
-// ——— Base64url кодек (ничего не меняет в слэшах) ———
-function toBase64Url(str){
-  const bytes = new TextEncoder().encode(str);
-  let bin = ''; for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
-  return btoa(bin).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+document.addEventListener("DOMContentLoaded", () => {
+  
+  const fallback = String.raw`
+
+  # Электротехнический протокол
+Это пример адаптивного просмотра. 
+
+### Формулы и адаптивность
+Если формула слишком длинная, на смартфоне она будет прокручиваться горизонтально, не ломая дизайн:
+
+$$ \alpha_e = \int_{0}^{\infty} \left( \frac{\partial p}{\partial t} + \frac{x^2 + y^2}{\sqrt{z}} \right) dx \cdot \text{очень длинная часть для теста скролла} $$
+
+### Таблицы
+Таблицы тоже имеют скролл:
+
+| Параметр | Значение | Описание | Дополнительно |
+| :--- | :--- | :--- | :--- |
+| Полюса ($p$) | 3 | Число пар полюсов | Важный параметр |
+| Угол $\alpha_m$ | 30° | Механический | Геометрия ротора |
+| Угол $\alpha_e$ | 90° | Электрический | Ток в обмотке |
+
+
+# Цветной код + Копирование
+Код подсвечивается автоматически, а справа сверху есть кнопка.
+
+### JavaScript
+~~~js
+function sayHello(name) {
+    const msg = "Привет, " + name + "!";
+    console.log(msg);
+    return msg;
 }
-function fromBase64Url(b64url){
-  if (!b64url) return '';
-  const b64 = b64url.replace(/-/g,'+').replace(/_/g,'/').padEnd(Math.ceil(b64url.length/4)*4,'=');
-  const bin = atob(b64), bytes = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-  return new TextDecoder().decode(bytes);
+// Попробуй нажать кнопку Copy!
+~~~
+
+### CSS
+~~~css
+body {
+    background: #f0f0f0;
+    color: #333;
 }
+.button:hover {
+    transform: scale(1.1);
+}
+~~~
 
-// ——— Читаем payload из фрагмента #t=... ———
-const params = new URLSearchParams(location.hash.slice(1));
-const payload = params.get('t');
+### Python
+~~~python
+def fib(n):
+    a, b = 0, 1
+    while a < n:
+        print(a, end=' ')
+        a, b = b, a+b
+~~~
+`;
 
-// ——— Если payload нет — показываем демо-текст через String.raw (одинарные \ работают) ———
-const fallback = String.raw`
-[Активация электротехнического протокола. Анализ соотношения электрических и механических углов.]
+  const Codec = {
+    from(str) {
+      try {
+        if (!str) return null;
+        const b64 = str.replace(/-/g, '+').replace(/_/g, '/');
+        const bin = atob(b64);
+        const bytes = Uint8Array.from(bin, c => c.codePointAt(0));
+        return new TextDecoder().decode(bytes);
+      } catch (e) { return null; }
+    }
+  };
 
-Это вопрос масштабирования. Соотношение между электрическими углами ($\alpha_e$) и механическими (геометрическими) углами ($\alpha_m$) напрямую зависит от числа пар полюсов ($p$) по формуле:
+  const checkLibs = setInterval(() => {
+    if (window.markdownit && window.texmath && window.katex && window.hljs) {
+      clearInterval(checkLibs);
+      init();
+    }
+  }, 50);
 
-$$\alpha_e = p * \alpha_m$$
+  function init() {
+    const md = window.markdownit({
+      html: false,
+      linkify: true,
+      typographer: true,
+      breaks: true,
+      // --- Включаем подсветку кода highlight.js ---
+      highlight: function (str, lang) {
+        if (lang && window.hljs.getLanguage(lang)) {
+          try {
+            return window.hljs.highlight(str, { language: lang }).value;
+          } catch (__) {}
+        }
+        return ''; // использовать стандартное экранирование
+      }
+    }).use(texmath, { engine: katex, delimiters: 'dollars', katexOptions: { throwOnError: false } });
 
-Где $p$ — число пар полюсов.
+    md.renderer.rules.table_open = () => '<div class="table-wrapper"><table>';
+    md.renderer.rules.table_close = () => '</table></div>';
 
-***
+    function render() {
+      const app = document.getElementById('app');
+      const loader = document.getElementById('loader');
+      
+      const params = new URLSearchParams(location.hash.slice(1));
+      const payload = params.get('t');
+      const text = payload ? Codec.from(payload) : fallback;
 
-### 1. Случай $p = 1$ (как вы указали)
+      app.innerHTML = text 
+        ? md.render(text) 
+        : '<div style="color:#cf222e;background:#ffebe9;padding:15px;border-radius:6px;">Ошибка ссылки</div>';
+      
+      // --- ПОСТ-ОБРАБОТКА: Добавляем кнопки копирования ---
+      addCopyButtons(app);
 
-Если $p = 1$, то:
-$$\alpha_e = 1 * \alpha_m$$
-90 электрических градусов = 90 механических (геометрических) градусов. Это базовое соотношение.
+      app.classList.remove('hidden');
+      loader.classList.add('hidden');
+    }
 
-### 2. Случай $p = 3$
+    function addCopyButtons(container) {
+      // Находим все теги <pre> (блоки кода)
+      container.querySelectorAll('pre').forEach(pre => {
+        // Создаем обертку
+        const wrapper = document.createElement('div');
+        wrapper.className = 'code-wrapper';
+        
+        // Вставляем обертку перед pre, затем переносим pre внутрь
+        pre.parentNode.insertBefore(wrapper, pre);
+        wrapper.appendChild(pre);
+        
+        // Создаем кнопку
+        const btn = document.createElement('button');
+        btn.className = 'copy-btn';
+        btn.innerText = 'Copy';
+        
+        // Логика копирования
+        btn.addEventListener('click', () => {
+            const code = pre.querySelector('code').innerText;
+            navigator.clipboard.writeText(code).then(() => {
+                btn.innerText = 'Copied!';
+                setTimeout(() => btn.innerText = 'Copy', 2000);
+            }).catch(err => {
+                console.error('Failed to copy', err);
+                btn.innerText = 'Error';
+            });
+        });
 
-Если число пар полюсов равно 3 ($p = 3$), то зависимость становится:
-$$\alpha_e = 3 * \alpha_m$$
+        wrapper.appendChild(btn);
+      });
+    }
 
-Следовательно, чтобы найти, скольким геометрическим градусам соответствуют 90 электрических градусов, нужно преобразовать формулу:
-
-$$\alpha_m = \alpha_e / p$$
-$$\alpha_m = 90 \text{ град} / 3$$
-$$\alpha_m = 30 \text{ град}$$
-
-**Ответ:**
-
-Если число пар полюсов равно 3, то **90 электрических градусов соответствует 30 геометрическим (механическим) градусам**.
-
-Это означает, что для полного электрического цикла (360 электрических градусов) ротору достаточно повернуться всего на 120 механических градусов ($360 / 3 = 120$). Машина с большим числом полюсов совершает больше электрических циклов за один физический оборот.`;
-
-// ——— Рендер ———
-const md = window.markdownit({ html:false, linkify:true, typographer:true })
-  .use(texmath, { engine:katex, delimiters:'dollars', katexOptions:{ throwOnError:false }});
-
-const mdText = payload ? fromBase64Url(payload) : fallback;
-document.querySelector('#app').innerHTML = md.render(mdText);
+    render();
+    window.addEventListener('hashchange', render);
+  }
+});
 </script>
+</body>
+</html>
